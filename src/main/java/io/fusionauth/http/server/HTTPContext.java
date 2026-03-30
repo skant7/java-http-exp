@@ -61,6 +61,9 @@ public class HTTPContext {
   /**
    * Attempts to retrieve a file or classpath resource at the given path. If the path is invalid, this will return null. If the classpath is
    * borked or the path somehow cannot be converted to a URL, then this throws an exception.
+   * <p>
+   * This method protects against path traversal attacks by normalizing the resolved path and ensuring it stays within the baseDir.
+   * Attempts to escape the baseDir using sequences like {@code ../} will cause this method to return null.
    *
    * @param path The path.
    * @return The URL to the resource or null.
@@ -74,7 +77,13 @@ public class HTTPContext {
     }
 
     try {
-      Path resolved = baseDir.resolve(filePath);
+      Path resolved = baseDir.resolve(filePath).normalize();
+
+      // Security: Verify the resolved path stays within baseDir to prevent path traversal attacks
+      if (!resolved.startsWith(baseDir.normalize())) {
+        return null;
+      }
+
       if (Files.exists(resolved)) {
         return resolved.toUri().toURL();
       }
@@ -98,17 +107,27 @@ public class HTTPContext {
   }
 
   /**
-   * Locates the path given the webapps baseDir (passed into the constructor.
+   * Locates the path given the webapps baseDir (passed into the constructor).
+   * <p>
+   * This method protects against path traversal attacks by normalizing the resolved path and ensuring it stays within the baseDir.
+   * Attempts to escape the baseDir using sequences like {@code ../} will return null.
    *
    * @param appPath The app path to a resource (like an FTL file).
-   * @return The resolved path, which is almost always just the baseDir plus the appPath with a file separator in the middle.
+   * @return The resolved path, or null if the path attempts to escape the baseDir.
    */
   public Path resolve(String appPath) {
     if (appPath.startsWith("/")) {
       appPath = appPath.substring(1);
     }
 
-    return baseDir.resolve(appPath);
+    Path resolved = baseDir.resolve(appPath).normalize();
+
+    // Security: Verify the resolved path stays within baseDir to prevent path traversal attacks
+    if (!resolved.startsWith(baseDir.normalize())) {
+      return null;
+    }
+
+    return resolved;
   }
 
   /**
