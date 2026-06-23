@@ -95,7 +95,7 @@ check_command() {
 if [[ "${TOOL}" == "wrk" || "${TOOL}" == "both" ]]; then
   check_command wrk
 fi
-check_command sb
+check_command mvn
 check_command java
 check_command curl
 check_command jq
@@ -138,13 +138,8 @@ build_fusionauth_load_tests() {
       echo "ERROR: Failed to build fusionauth-load-tests"
       return 1
     }
-  elif command -v sb >/dev/null 2>&1; then
-    (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && sb clean int) || {
-      echo "ERROR: Failed to build fusionauth-load-tests"
-      return 1
-    }
   else
-    echo "ERROR: fusionauth-load-tests has no pom.xml and Savant (sb) is not on PATH"
+    echo "ERROR: fusionauth-load-tests has no pom.xml (Maven build required)"
     return 1
   fi
 
@@ -579,7 +574,8 @@ for server in ${SERVERS}; do
 
   echo "--- Building ${server} ---"
   # Ensure the main library is installed for the 'self' server dependency.
-  if [[ "${server}" == "self" ]]; then
+  # CI can set SKIP_JAVA_HTTP_INSTALL=true when the artifact is already in the local repo.
+  if [[ "${server}" == "self" && "${SKIP_JAVA_HTTP_INSTALL:-}" != "true" ]]; then
     (cd "${SCRIPT_DIR}/.." && mvn -B -q install -DskipTests) || {
       echo "ERROR: Failed to install java-http for self server, skipping."
       continue
