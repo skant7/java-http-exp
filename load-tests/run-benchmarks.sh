@@ -95,7 +95,7 @@ check_command() {
 if [[ "${TOOL}" == "wrk" || "${TOOL}" == "both" ]]; then
   check_command wrk
 fi
-check_command sb
+check_command mvn
 check_command java
 check_command curl
 check_command jq
@@ -138,13 +138,8 @@ build_fusionauth_load_tests() {
       echo "ERROR: Failed to build fusionauth-load-tests"
       return 1
     }
-  elif command -v sb >/dev/null 2>&1; then
-    (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && sb clean int) || {
-      echo "ERROR: Failed to build fusionauth-load-tests"
-      return 1
-    }
   else
-    echo "ERROR: fusionauth-load-tests has no pom.xml and Savant (sb) is not on PATH"
+    echo "ERROR: fusionauth-load-tests has no pom.xml (Maven build required)"
     return 1
   fi
 
