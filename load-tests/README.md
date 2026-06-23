@@ -5,7 +5,7 @@ Automated benchmarking framework for comparing java-http against other Java HTTP
 ## Prerequisites
 
 - **Java 21+** with `JAVA_HOME` set (e.g., `export JAVA_HOME=/opt/homebrew/opt/openjdk@21`)
-- **Savant** build tool (`sb` on PATH)
+- **Maven 3.9+** (`mvn` on PATH)
 - **wrk** HTTP benchmark tool (`brew install wrk` on macOS)
 - **jq** for JSON processing (`brew install jq` on macOS)
 - **fusionauth-load-tests** (optional) checked out at `~/dev/fusionauth/fusionauth-load-tests`
@@ -127,17 +127,20 @@ This reads the most recent JSON from `results/` and replaces the `## Performance
 
 ## Building Individual Servers
 
-Each server can be built independently using Savant:
+Each server can be built independently using Maven. The `package` phase assembles `build/dist/` (same layout as the previous Savant builds).
 
 ```bash
-# Most servers
-cd load-tests/<server> && sb clean app
+# Install the main library first when building the self server
+cd /path/to/java-http && mvn -B install -DskipTests
 
-# Tomcat (different target)
-cd load-tests/tomcat && sb clean tomcat
+# Build any load-test server
+cd load-tests/<server> && mvn -B clean package -DskipTests
 
 # Start a server manually
 cd load-tests/<server>/build/dist && ./start.sh
+
+# Tomcat starts from its dist catalina script
+cd load-tests/tomcat/build/dist/tomcat/apache-tomcat/bin && ./catalina.sh run
 ```
 
 ## Tool Comparison Notes

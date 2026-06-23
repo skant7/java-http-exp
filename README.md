@@ -37,12 +37,6 @@ If you are using Gradle, you can add this to your build file:
 implementation 'io.fusionauth:java-http:1.4.0'
 ```
 
-If you are using Savant, you can add this to your build file:
-
-```groovy
-dependency(id: "io.fusionauth:java-http:1.4.0")
-```
-
 ## Examples Usages:
 
 Creating a server is simple:
@@ -252,15 +246,17 @@ Let's face it, NIO is insanely complex to write and maintain. The first 3 versio
 
 We are looking for Java developers that are interested in helping us build the client and server. If you know a ton about networks and protocols and love writing clean, high-performance Java, contact us at `dev@fusionauth.io`.
 
-## Building with Savant
+## Building with Maven
 
-**Note:** This project uses the Savant build tool. To compile using Savant, follow these instructions:
+This project uses [Apache Maven](https://maven.apache.org/). Requires **Java 21+**.
 
 ```bash
-$ mkdir ~/savant
-$ cd ~/savant
-$ wget https://savant.inversoft.org/org/savantbuild/savant-core/2.0.2/savant-2.0.2.tar.gz
-$ tar xvfz savant-2.0.2.tar.gz
-$ ln -s ./savant-2.0.2 current
-$ export PATH=$PATH:~/savant/current/bin/
+# Compile, run tests (performance and timeout groups excluded by default), and package
+mvn clean verify
+
+# Skip tests
+mvn clean package -DskipTests
+
+# Publish a release to Maven Central (requires signing credentials)
+mvn clean deploy -Prelease
 ```

@@ -17,33 +17,15 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: |
-            17
-            21
-      - name: Install Savant Build
-        run: |
-          mkdir -p ~/dev/savant
-          mkdir -p ~/.savant/plugins
-          cd ~/dev/savant
-          curl -fSL https://github.com/savant-build/savant-core/releases/download/2.0.0/savant-2.0.0.tar.gz > savant.tar.gz
-          tar -xzf savant.tar.gz
-          ln -s savant-2.0.0 current
-          rm savant.tar.gz
-          cat <<EOF > ~/.savant/plugins/org.savantbuild.plugin.java.properties
-          17=${JAVA_HOME_17_X64}
-          21=${JAVA_HOME_21_X64}
-          EOF
-        shell: bash
+          java-version: '21'
+          cache: maven
       - name: Run the build
-        run: |
-          export JAVA_HOME=${JAVA_HOME_21_X64}
-          export PATH=~/dev/savant/current/bin:${JAVA_HOME}/bin:$PATH
-          sb clean int --excludePerformance --excludeTimeouts
+        run: mvn -B clean verify
         shell: bash
-      - name: Archive TestNG reports
+      - name: Archive Surefire reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: testng-reports
-          path: build/test-reports
+          name: surefire-reports
+          path: build/surefire-reports
           retention-days: 1
