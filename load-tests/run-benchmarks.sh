@@ -574,7 +574,8 @@ for server in ${SERVERS}; do
 
   echo "--- Building ${server} ---"
   # Ensure the main library is installed for the 'self' server dependency.
-  if [[ "${server}" == "self" ]]; then
+  # CI can set SKIP_JAVA_HTTP_INSTALL=true when the artifact is already in the local repo.
+  if [[ "${server}" == "self" && "${SKIP_JAVA_HTTP_INSTALL:-}" != "true" ]]; then
     (cd "${SCRIPT_DIR}/.." && mvn -B -q install -DskipTests) || {
       echo "ERROR: Failed to install java-http for self server, skipping."
       continue
