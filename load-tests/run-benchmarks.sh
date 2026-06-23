@@ -133,10 +133,20 @@ build_fusionauth_load_tests() {
   fi
 
   echo "--- Building fusionauth-load-tests ---"
-  (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && sb clean int) || {
-    echo "ERROR: Failed to build fusionauth-load-tests"
+  if [[ -f "${FUSIONAUTH_LOAD_TESTS_DIR}/pom.xml" ]]; then
+    (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && mvn -B -q clean package -DskipTests) || {
+      echo "ERROR: Failed to build fusionauth-load-tests"
+      return 1
+    }
+  elif command -v sb >/dev/null 2>&1; then
+    (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && sb clean int) || {
+      echo "ERROR: Failed to build fusionauth-load-tests"
+      return 1
+    }
+  else
+    echo "ERROR: fusionauth-load-tests has no pom.xml and Savant (sb) is not on PATH"
     return 1
-  }
+  fi
 
   FUSIONAUTH_LT_DIST="${FUSIONAUTH_LOAD_TESTS_DIR}/build/dist"
   FUSIONAUTH_LT_BUILT=true
@@ -355,11 +365,9 @@ scenario_config() {
 
 # --- Server build and start configuration ---
 
-server_build_target() {
-  case "$1" in
-    tomcat) echo "clean tomcat" ;;
-    *)      echo "clean app" ;;
-  esac
+server_build_cmd() {
+  # All load-test servers are built with Maven; package assembles build/dist.
+  echo "mvn -B -q clean package -DskipTests"
 }
 
 start_server() {
@@ -570,8 +578,15 @@ for server in ${SERVERS}; do
   fi
 
   echo "--- Building ${server} ---"
-  build_target="$(server_build_target "${server}")"
-  (cd "${server_dir}" && sb ${build_target}) || {
+  # Ensure the main library is installed for the 'self' server dependency.
+  if [[ "${server}" == "self" ]]; then
+    (cd "${SCRIPT_DIR}/.." && mvn -B -q install -DskipTests) || {
+      echo "ERROR: Failed to install java-http for self server, skipping."
+      continue
+    }
+  fi
+  build_cmd="$(server_build_cmd "${server}")"
+  (cd "${server_dir}" && eval "${build_cmd}") || {
     echo "ERROR: Failed to build ${server}, skipping."
     continue
   }
