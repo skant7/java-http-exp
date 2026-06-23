@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.fusionauth</groupId>
+  <artifactId>load-tomcat</artifactId>
+  <version>0.1.10</version>
+  <packaging>war</packaging>
+  <name>java-http load test server (Tomcat)</name>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <tomcat.version>8.5.72</tomcat.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>3.1.0</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <directory>build</directory>
+    <finalName>load-tomcat</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.14.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.4.0</version>
+        <configuration>
+          <warSourceDirectory>${project.basedir}/web</warSourceDirectory>
+          <failOnMissingWebXml>false</failOnMissingWebXml>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.8.1</version>
+        <executions>
+          <execution>
+            <id>unpack-tomcat</id>
+            <phase>package</phase>
+            <goals>
+              <goal>unpack</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>org.apache.tomcat</groupId>
+                  <artifactId>tomcat</artifactId>
+                  <version>${tomcat.version}</version>
+                  <type>tar.gz</type>
+                  <overWrite>true</overWrite>
+                  <outputDirectory>${project.build.directory}/dist/tomcat</outputDirectory>
+                </artifactItem>
+              </artifactItems>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>assemble-tomcat-runtime</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <!-- Unpack lands in apache-tomcat-VERSION; rename to apache-tomcat for scripts -->
+                <move file="${project.build.directory}/dist/tomcat/apache-tomcat-${tomcat.version}"
+                      tofile="${project.build.directory}/dist/tomcat/apache-tomcat"
+                      failonerror="false"/>
+                <!-- Prefer explicit conf from source when present -->
+                <copy todir="${project.build.directory}/dist/tomcat/apache-tomcat/conf" overwrite="true" failonerror="false">
+                  <fileset dir="${project.basedir}/src/main/tomcat/conf"/>
+                </copy>
+                <!-- Deploy WAR into webapps -->
+                <mkdir dir="${project.build.directory}/dist/tomcat/apache-tomcat/webapps"/>
+                <copy file="${project.build.directory}/load-tomcat.war"
+                      tofile="${project.build.directory}/dist/tomcat/apache-tomcat/webapps/ROOT.war"
+                      failonerror="false"/>
+                <chmod dir="${project.build.directory}/dist/tomcat/apache-tomcat/bin" includes="*.sh" perm="755" failonerror="false"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
