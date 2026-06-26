@@ -222,19 +222,19 @@ See [load-tests/README.md](load-tests/README.md) for full usage and options.
 * [x] Support multipart form data
 * [x] Support TLS
 * [ ] Support trailers
-* [ ] Support HTTP 2
+* [x] Support HTTP 2 (framing, HPACK, ALPN `h2`, cleartext prior-knowledge `h2c`)
 
 ### Client tasks
 
-* [ ] Basic HTTP 1.1
+* [x] Basic HTTP 1.1
 * [ ] Support Keep-Alive
-* [ ] Support TLS
+* [x] Support TLS
 * [ ] Support Expect-Continue 100
-* [ ] Support chunked request and response
+* [x] Support chunked request and response (decode on responses)
 * [ ] Support streaming entity bodies
 * [ ] Support form data
 * [ ] Support multipart form data
-* [ ] Support HTTP 2
+* [x] Support HTTP 2 (ALPN `h2` and prior-knowledge `h2c`)
 
 ## FAQ
 

@@ -6,4 +6,6 @@ module io.fusionauth.http {
   exports io.fusionauth.http.server;
   exports io.fusionauth.http.server.io;
   exports io.fusionauth.http.util;
+  exports io.fusionauth.http.http2;
+  exports io.fusionauth.http.client;
 }

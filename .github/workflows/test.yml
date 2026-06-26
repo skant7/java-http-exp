@@ -8,6 +8,10 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -30,8 +34,14 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # Full unit/integration suite (includes HTTP/1.1 regression + HTTP/2).
       - name: Run the build
         run: mvn -B --no-transfer-progress clean verify
+        shell: bash
+
+      # Explicit HTTP/2 gate so ALPN / prior-knowledge regressions fail loudly in CI logs.
+      - name: HTTP/2 client and server tests
+        run: mvn -B --no-transfer-progress -Dtest=io.fusionauth.http.http2.HTTP2Test test
         shell: bash
 
       # Hand the packaged library to the load-tests job so it can skip a full reinstall.
@@ -80,7 +90,7 @@ jobs:
       - name: Install benchmark tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq wrk jq
+          sudo apt-get install -y -qq wrk jq curl
 
       # Install the JAR produced by the test job into the local Maven repo so the self
       # load-test module resolves io.fusionauth:java-http without recompiling the library.

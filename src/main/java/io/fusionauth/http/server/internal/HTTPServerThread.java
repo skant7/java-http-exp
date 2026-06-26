@@ -16,6 +16,8 @@
 package io.fusionauth.http.server.internal;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLServerSocket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -76,7 +78,14 @@ public class HTTPServerThread extends Thread {
 
     if (listener.isTLS()) {
       SSLContext context = SecurityTools.serverContext(listener.getCertificateChain(), listener.getPrivateKey());
-      this.socket = context.getServerSocketFactory().createServerSocket();
+      SSLServerSocket sslServerSocket = (SSLServerSocket) context.getServerSocketFactory().createServerSocket();
+      SSLParameters parameters = sslServerSocket.getSSLParameters();
+      // Prefer HTTP/1.1 for compatibility with clients that offer both (e.g. java.net.http.HttpClient).
+      // Clients that require HTTP/2 can still negotiate h2 when they prioritize it and we accept it,
+      // or use cleartext prior-knowledge (h2c). Explicit h2-only clients set ALPN to only "h2".
+      parameters.setApplicationProtocols(new String[]{"http/1.1", "h2"});
+      sslServerSocket.setSSLParameters(parameters);
+      this.socket = sslServerSocket;
     } else {
       this.socket = new ServerSocket();
     }

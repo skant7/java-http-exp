@@ -53,7 +53,7 @@ public class HTTPResponse {
 
   private Throwable exception;
 
-  private HTTPOutputStream outputStream;
+  private OutputStream outputStream;
 
   private int status = 200;
 
@@ -117,7 +117,11 @@ public class HTTPResponse {
    * @throws IOException If the socket throws.
    */
   public void flush() throws IOException {
-    outputStream.forceFlush();
+    if (outputStream instanceof HTTPOutputStream http) {
+      http.forceFlush();
+    } else if (outputStream != null) {
+      outputStream.flush();
+    }
   }
 
   /**
@@ -191,8 +195,15 @@ public class HTTPResponse {
     return outputStream;
   }
 
-  public void setOutputStream(HTTPOutputStream outputStream) {
+  public void setOutputStream(OutputStream outputStream) {
     this.outputStream = outputStream;
+  }
+
+  /**
+   * @return the underlying stream when it is an {@link HTTPOutputStream}, otherwise {@code null}.
+   */
+  public HTTPOutputStream getHTTPOutputStream() {
+    return outputStream instanceof HTTPOutputStream http ? http : null;
   }
 
   public String getRedirect() {
@@ -228,14 +239,14 @@ public class HTTPResponse {
    * @return True if the response has been committed, meaning at least one byte was written back to the client. False otherwise.
    */
   public boolean isCommitted() {
-    return outputStream.isCommitted();
+    return outputStream instanceof HTTPOutputStream http && http.isCommitted();
   }
 
   /**
    * @return true if compression will be utilized when writing the HTTP OutputStream.
    */
   public boolean isCompress() {
-    return outputStream.isCompress();
+    return outputStream instanceof HTTPOutputStream http && http.isCompress();
   }
 
   /**
@@ -247,7 +258,9 @@ public class HTTPResponse {
    * @param compress true to enable the response to be written back compressed.
    */
   public void setCompress(boolean compress) {
-    outputStream.setCompress(compress);
+    if (outputStream instanceof HTTPOutputStream http) {
+      http.setCompress(compress);
+    }
   }
 
   public void removeCookie(String name) {
@@ -269,14 +282,16 @@ public class HTTPResponse {
    * Hard resets this response if it hasn't been committed yet. If the response has been committed back to the client, this throws up.
    */
   public void reset() {
-    if (outputStream.isCommitted()) {
-      throw new IllegalStateException("The HTTPResponse can't be reset after it has been committed, meaning at least one byte was written back to the client.");
+    if (outputStream instanceof HTTPOutputStream http) {
+      if (http.isCommitted()) {
+        throw new IllegalStateException("The HTTPResponse can't be reset after it has been committed, meaning at least one byte was written back to the client.");
+      }
+      http.reset();
     }
 
     cookies.clear();
     headers.clear();
     exception = null;
-    outputStream.reset();
     status = 200;
     statusMessage = null;
     writer = null;
@@ -312,7 +327,7 @@ public class HTTPResponse {
    * @return true if compression has been requested and as far as we know, we will.
    */
   public boolean willCompress() {
-    return outputStream.willCompress();
+    return outputStream instanceof HTTPOutputStream http && http.willCompress();
   }
 }
 
