@@ -95,7 +95,7 @@ check_command() {
 if [[ "${TOOL}" == "wrk" || "${TOOL}" == "both" ]]; then
   check_command wrk
 fi
-check_command sb
+check_command mvn
 check_command java
 check_command curl
 check_command jq
@@ -133,10 +133,15 @@ build_fusionauth_load_tests() {
   fi
 
   echo "--- Building fusionauth-load-tests ---"
-  (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && sb clean int) || {
-    echo "ERROR: Failed to build fusionauth-load-tests"
+  if [[ -f "${FUSIONAUTH_LOAD_TESTS_DIR}/pom.xml" ]]; then
+    (cd "${FUSIONAUTH_LOAD_TESTS_DIR}" && mvn -B -q clean package -DskipTests) || {
+      echo "ERROR: Failed to build fusionauth-load-tests"
+      return 1
+    }
+  else
+    echo "ERROR: fusionauth-load-tests has no pom.xml (Maven build required)"
     return 1
-  }
+  fi
 
   FUSIONAUTH_LT_DIST="${FUSIONAUTH_LOAD_TESTS_DIR}/build/dist"
   FUSIONAUTH_LT_BUILT=true
@@ -355,11 +360,9 @@ scenario_config() {
 
 # --- Server build and start configuration ---
 
-server_build_target() {
-  case "$1" in
-    tomcat) echo "clean tomcat" ;;
-    *)      echo "clean app" ;;
-  esac
+server_build_cmd() {
+  # All load-test servers are built with Maven; package assembles build/dist.
+  echo "mvn -B -q clean package -DskipTests"
 }
 
 start_server() {
@@ -570,8 +573,16 @@ for server in ${SERVERS}; do
   fi
 
   echo "--- Building ${server} ---"
-  build_target="$(server_build_target "${server}")"
-  (cd "${server_dir}" && sb ${build_target}) || {
+  # Ensure the main library is installed for the 'self' server dependency.
+  # CI can set SKIP_JAVA_HTTP_INSTALL=true when the artifact is already in the local repo.
+  if [[ "${server}" == "self" && "${SKIP_JAVA_HTTP_INSTALL:-}" != "true" ]]; then
+    (cd "${SCRIPT_DIR}/.." && mvn -B -q install -DskipTests) || {
+      echo "ERROR: Failed to install java-http for self server, skipping."
+      continue
+    }
+  fi
+  build_cmd="$(server_build_cmd "${server}")"
+  (cd "${server_dir}" && eval "${build_cmd}") || {
     echo "ERROR: Failed to build ${server}, skipping."
     continue
   }

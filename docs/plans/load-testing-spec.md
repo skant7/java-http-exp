@@ -55,7 +55,7 @@ Endpoints:
 - `POST /load` — Base64-encodes request body and returns it
 
 Each server follows the same pattern:
-- `build.savant` — Savant build config with proper dependency resolution (including `maven()` fetch for transitive deps)
+- `pom.xml` — Maven build config with dependency resolution from Maven Central
 - `src/main/java/io/fusionauth/http/load/` — Server implementation
 - `src/main/script/start.sh` — Startup script
 
@@ -76,7 +76,7 @@ Note: The `mixed` scenario is skipped for fusionauth-load-tests since it only su
 
 ### run-benchmarks.sh
 
-Main orchestrator. Builds each server via Savant, starts it, runs benchmarks, stops it, aggregates JSON results.
+Main orchestrator. Builds each server via Maven, starts it, runs benchmarks, stops it, aggregates JSON results.
 
 ```
 ./run-benchmarks.sh [OPTIONS]

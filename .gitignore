@@ -2,7 +2,10 @@
 .savant
 out
 build
+target
 load-tests/lib
 load-tests/results/
 load-tests/tomcat/web/WEB-INF/lib
 .worktrees
+.idea/
+*.iml

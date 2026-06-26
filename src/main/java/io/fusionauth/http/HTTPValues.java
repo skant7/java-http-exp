@@ -314,6 +314,14 @@ public final class HTTPValues {
 
     public static final String HTTTP1_1 = "HTTP/1.1";
 
+    public static final String HTTTP2 = "HTTP/2";
+
+    /** ALPN / cleartext protocol identifier for HTTP/2. */
+    public static final String H2 = "h2";
+
+    /** Cleartext HTTP/2 prior-knowledge identifier. */
+    public static final String H2C = "h2c";
+
     private Protocols() {
     }
   }

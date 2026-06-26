@@ -15,6 +15,7 @@
  */
 package io.fusionauth.http.server.internal;
 
+import javax.net.ssl.SSLSocket;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
@@ -29,6 +30,7 @@ import io.fusionauth.http.HTTPValues.ContentEncodings;
 import io.fusionauth.http.HTTPValues.Headers;
 import io.fusionauth.http.HTTPValues.Protocols;
 import io.fusionauth.http.ParseException;
+import io.fusionauth.http.http2.HTTP2Preface;
 import io.fusionauth.http.io.MultipartConfiguration;
 import io.fusionauth.http.io.PushbackInputStream;
 import io.fusionauth.http.log.Logger;
@@ -110,6 +112,77 @@ public class HTTPWorker implements Runnable {
     HTTPResponse response = null;
 
     try {
+      OutputStream throughputOut = new ThroughputOutputStream(socket.getOutputStream(), throughput);
+
+      // Complete TLS handshake so ALPN is available and application data can be read.
+      String alpn = null;
+      if (socket instanceof SSLSocket sslSocket) {
+        sslSocket.startHandshake();
+        alpn = sslSocket.getApplicationProtocol();
+      }
+
+      // HTTP/2 via ALPN, or prior-knowledge preface (starts with "PRI").
+      // Only peek the first 3 bytes so HTTP/1.1 clients are not blocked waiting for a full 24-byte preface.
+      boolean alpnH2 = Protocols.H2.equals(alpn);
+      boolean prefaceH2 = false;
+      if (alpnH2) {
+        // ALPN selected h2; client must still send the connection preface — consume it if present.
+        byte[] prefaceProbe = new byte[HTTP2Preface.CLIENT_PREFACE.length];
+        int read = 0;
+        while (read < prefaceProbe.length) {
+          int n = inputStream.read(prefaceProbe, read, prefaceProbe.length - read);
+          if (n < 0) {
+            break;
+          }
+          read += n;
+        }
+        prefaceH2 = read == prefaceProbe.length && HTTP2Preface.matches(prefaceProbe, 0, read);
+        if (!prefaceH2 && read > 0) {
+          inputStream.push(prefaceProbe, 0, read);
+        }
+        logger.trace("[{}] Negotiated HTTP/2 via ALPN (preface consumed={}).", Thread.currentThread().threadId(), prefaceH2);
+        new HTTP2Worker(socket, configuration, instrumenter, listener, inputStream, throughputOut).run();
+        return;
+      }
+
+      byte[] magic = new byte[3];
+      int magicRead = 0;
+      while (magicRead < 3) {
+        int n = inputStream.read(magic, magicRead, 3 - magicRead);
+        if (n < 0) {
+          break;
+        }
+        magicRead += n;
+      }
+      if (magicRead == 3 && magic[0] == 'P' && magic[1] == 'R' && magic[2] == 'I') {
+        // Likely HTTP/2 prior knowledge — read the rest of the preface.
+        byte[] rest = new byte[HTTP2Preface.CLIENT_PREFACE.length - 3];
+        int read = 0;
+        while (read < rest.length) {
+          int n = inputStream.read(rest, read, rest.length - read);
+          if (n < 0) {
+            break;
+          }
+          read += n;
+        }
+        byte[] full = new byte[HTTP2Preface.CLIENT_PREFACE.length];
+        System.arraycopy(magic, 0, full, 0, 3);
+        System.arraycopy(rest, 0, full, 3, read);
+        if (read == rest.length && HTTP2Preface.matches(full, 0, full.length)) {
+          prefaceH2 = true;
+          logger.trace("[{}] Detected HTTP/2 connection preface (prior knowledge).", Thread.currentThread().threadId());
+          new HTTP2Worker(socket, configuration, instrumenter, listener, inputStream, throughputOut).run();
+          return;
+        }
+        // False positive on "PRI" — push everything back (combine into one buffer).
+        byte[] combined = new byte[3 + read];
+        System.arraycopy(magic, 0, combined, 0, 3);
+        System.arraycopy(rest, 0, combined, 3, read);
+        inputStream.push(combined, 0, combined.length);
+      } else if (magicRead > 0) {
+        inputStream.push(magic, 0, magicRead);
+      }
+
       if (instrumenter != null) {
         instrumenter.workerStarted();
       }
@@ -122,10 +195,9 @@ public class HTTPWorker implements Runnable {
         request.getMultiPartStreamProcessor().setMultipartConfiguration(new MultipartConfiguration(configuration.getMultipartConfiguration()));
 
         // Set up the output stream so that if we fail we have the opportunity to write a response that contains a status code.
-        var throughputOutputStream = new ThroughputOutputStream(socket.getOutputStream(), throughput);
         response = new HTTPResponse();
 
-        HTTPOutputStream outputStream = new HTTPOutputStream(configuration, request.getAcceptEncodings(), response, throughputOutputStream, buffers, () -> state = State.Write);
+        HTTPOutputStream outputStream = new HTTPOutputStream(configuration, request.getAcceptEncodings(), response, throughputOut, buffers, () -> state = State.Write);
         response.setOutputStream(outputStream);
 
         // Not this line of code will block

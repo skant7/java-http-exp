@@ -1,0 +1,16 @@
+[mcp_servers.filesystem]
+command = "npx"
+args = [
+    "-y",
+    "@modelcontextprotocol/server-filesystem",
+    "/Users/surya/Desktop/projects/java-http-exp",
+]
+enabled = true
+
+[mcp_servers.fetch]
+command = "npx"
+args = [
+    "-y",
+    "mcp-fetch-server",
+]
+enabled = true

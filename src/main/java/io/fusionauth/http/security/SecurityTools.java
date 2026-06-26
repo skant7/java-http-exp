@@ -61,9 +61,18 @@ public final class SecurityTools {
    * @return A SSLContext configured with the Certificate.
    */
   public static SSLContext clientContext(Certificate certificate) throws GeneralSecurityException, IOException {
+    return clientContext(new Certificate[]{certificate});
+  }
+
+  /**
+   * Trust one or more certificates (e.g. server leaf and intermediate CA) for outbound TLS.
+   */
+  public static SSLContext clientContext(Certificate[] certificates) throws GeneralSecurityException, IOException {
     KeyStore keystore = KeyStore.getInstance("JKS");
     keystore.load(null);
-    keystore.setCertificateEntry("cert-alias", certificate);
+    for (int i = 0; i < certificates.length; i++) {
+      keystore.setCertificateEntry("cert-alias-" + i, certificates[i]);
+    }
 
     TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
     tmf.init(keystore);
@@ -145,6 +154,9 @@ public final class SecurityTools {
 
     SSLContext context = SSLContext.getInstance("TLS");
     context.init(kmf.getKeyManagers(), null, null);
+    // Default prefer HTTP/1.1; HTTP/2 still available via ALPN when the client prioritizes h2 only
+    // or when prior-knowledge preface is used on the connection.
+    context.getDefaultSSLParameters().setApplicationProtocols(new String[]{"http/1.1", "h2"});
     return context;
   }
 
@@ -167,6 +179,16 @@ public final class SecurityTools {
 
     SSLContext context = SSLContext.getInstance("TLS");
     context.init(kmf.getKeyManagers(), null, null);
+    context.getDefaultSSLParameters().setApplicationProtocols(new String[]{"http/1.1", "h2"});
+    return context;
+  }
+
+  /**
+   * SSLContext for HTTP/2 clients with ALPN {@code h2} preferred.
+   */
+  public static SSLContext clientContextHTTP2(Certificate certificate) throws GeneralSecurityException, IOException {
+    SSLContext context = clientContext(certificate);
+    context.getDefaultSSLParameters().setApplicationProtocols(new String[]{"h2"});
     return context;
   }
 
